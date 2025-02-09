@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upload Image</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 95vh;
+        background-color: #f4f4f4;
+      }
+      .container {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+      input,
+      button,
+      select {
+        margin: 10px;
+        padding: 8px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+      }
+      button {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+      button:hover {
+        background-color: #218838;
+      }
+      img {
+        margin-top: 10px;
+        max-width: 700px;
+        display: none;
+        border: 2px solid black;
+        padding: 5px;
+        border-radius: 5px;
+      }
+      #message {
+        margin-top: 10px;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2 id="uploadTitle">Upload Image</h2>
+      <img id="uploadedImage" alt="Uploaded Image" />
+      <p id="message"></p>
+      <input
+        type="file"
+        id="fileInput"
+        accept="image/*"
+        onchange="previewImage()"
+      />
+      <label for="dropdown">Select an option:</label>
+      <select id="dropdown">
+        <option value="Algorithm01">Algorithm 1</option>
+        <option value="Algorithm02">Algorithm 2</option>
+      </select>
+      <label for="thresholdInput">Threshold:</label>
+      <input type="range" id="thresholdInput" min="0" max="100" value="50" />
+      <span id="thresholdValue">50</span>
+      <button onclick="uploadImage()">Upload</button>
+      <button onclick="resetForm()" style="background-color: #dc3545">
+        Reset
+      </button>
+    </div>
+
+    <script>
+      document
+        .getElementById("thresholdInput")
+        .addEventListener("input", function () {
+          document.getElementById("thresholdValue").textContent = this.value;
+        });
+
+      function previewImage() {
+        const fileInput = document.getElementById("fileInput");
+        const uploadedImage = document.getElementById("uploadedImage");
+        if (fileInput.files.length) {
+          uploadedImage.src = URL.createObjectURL(fileInput.files[0]);
+          uploadedImage.style.display = "block";
+        }
+        uploadTitle.style.display = "none";
+      }
+
+      function uploadImage() {
+        const fileInput = document.getElementById("fileInput");
+        const dropdown = document.getElementById("dropdown");
+        const thresholdInput = document.getElementById("thresholdInput");
+        const message = document.getElementById("message");
+        const uploadTitle = document.getElementById("uploadTitle");
+
+        if (!fileInput.files.length) {
+          alert("Please select an image.");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("image", fileInput.files[0]);
+        formData.append("selectedOption", dropdown.value);
+        formData.append("threshold", thresholdInput.value);
+
+        fetch("http://localhost:3001/upload_image", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => {
+            if (response.ok) {
+              message.textContent = "Upload Successful!";
+              message.style.color = "green";
+              return response.json();
+            } else {
+              throw new Error("Upload Failed");
+            }
+          })
+          .catch((error) => {
+            message.textContent = "Upload Failed!";
+            message.style.color = "red";
+            console.error("Error:", error);
+          });
+      }
+
+      function resetForm() {
+        document.getElementById("fileInput").value = "";
+        document.getElementById("dropdown").value = "Algorithm01";
+        document.getElementById("thresholdInput").value = 50;
+        document.getElementById("thresholdValue").textContent = 50;
+        document.getElementById("uploadedImage").style.display = "none";
+        document.getElementById("message").textContent = "";
+        document.getElementById("uploadTitle").style.display = "block";
+      }
+    </script>
+  </body>
+</html>

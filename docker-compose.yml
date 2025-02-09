@@ -1,0 +1,68 @@
+services:
+  back_end_app:
+    image: node:latest
+    container_name: back_end_app_node_container
+    command: ["sh", "-c", "tail -f /dev/null"]
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./back_end_app:/app
+    working_dir: /app
+    restart: "no"
+    environment:
+      - NODE_ENV=development
+    tty: true
+    stdin_open: true
+    networks:
+      - node_python_network
+      - node_postgres_network
+
+  postgres_db:
+    image: postgres:latest
+    container_name: postgres_container
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: my_database
+    restart: "no"
+    networks:
+      - node_postgres_network
+      - postgres_pgadmin_network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_container
+    ports:
+      - "5050:80"
+    volumes:
+      - ./pgadmin_data:/var/lib/pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    restart: "no"
+    networks:
+      - postgres_pgadmin_network
+
+  python_app:
+    image: python:latest
+    container_name: python_container
+    command: ["sh", "-c", "tail -f /dev/null"]
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./python_app:/app
+    working_dir: /app
+    restart: "no"
+    tty: true
+    stdin_open: true
+    networks:
+      - node_python_network
+
+networks:
+  node_python_network:
+  node_postgres_network:
+  postgres_pgadmin_network:
