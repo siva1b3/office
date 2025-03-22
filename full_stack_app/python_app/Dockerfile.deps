@@ -4,10 +4,11 @@ FROM python:latest
 # Set the working directory in the container
 WORKDIR /app
 
+# Copy the requirements file
+COPY requirements.txt .
+
 # Install Python dependencies
-RUN export http_proxy="http://pradeep.cabs:Pradeep123_@proxy.drdo.in:3128" && \
-    export https_proxy="http://pradeep.cabs:Pradeep123_@proxy.drdo.in:3128" && \
-    pip install --no-cache-dir pika pandas numpy jupyterlab notebook ipykernel
+RUN pip install --no-cache-dir -r requirements.txt 
 
 # Start the app (for debugging purposes)
 CMD ["tail", "-f", "/dev/null"]

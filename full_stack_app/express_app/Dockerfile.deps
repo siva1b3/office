@@ -9,9 +9,7 @@ COPY package*.json .
 
 # Install dependencies and set npm proxy configuration
 # Add logging to track the install process
-RUN npm config set proxy http://pradeep.cabs:Pradeep123_@proxy.drdo.in:3128 && \
-    npm config set https-proxy http://pradeep.cabs:Pradeep123_@proxy.drdo.in:3128 && \
-    echo "Installing dependencies..." && npm install && \
+RUN echo "Installing dependencies..." && npm install && \
     echo "Dependencies installed"
 
 # Export the dependencies
