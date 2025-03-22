@@ -54,7 +54,7 @@ def callback(ch, method, properties, body):
             print(f"✅ Addition result: {num1} + {num2} = {result}")
 
             # Publish result to result queue
-            result_data = json.dumps({"num1": num1, "num2": num2, "result": result})
+            result_data = json.dumps({"num1": num1, "num2": num2, "result": result, "operation": "add"})
             ch.basic_publish(exchange='', routing_key=QUEUE_ADD_RESULT, body=result_data)
 
         else:

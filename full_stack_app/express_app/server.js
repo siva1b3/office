@@ -77,7 +77,7 @@ app.post("/calculate", async (req, res) => {
   if (!queueMap[operation])
     return res.status(400).json({ error: "Invalid operation" });
 
-  const status = await sendToQueue(
+  const status = await sendMessage(
     { num1, num2, operation },
     queueMap[operation]
   );
@@ -98,6 +98,7 @@ app.get("/", (req, res) => {
 app.listen(PORT, async () => {
   try {
     await connectRabbitMQ();
+    consumeResults();
   } catch (error) {
     console.error("❌ RabbitMQ connection failed:", error);
   }
@@ -188,5 +189,48 @@ async function sendMessage(message, queueName) {
       error.message
     );
     return false;
+  }
+}
+
+async function consumeResults() {
+  const resultQueues = [
+    QUEUE_ADD_RESULT,
+    QUEUE_SUB_RESULT,
+    QUEUE_MUL_RESULT,
+    QUEUE_DIV_RESULT,
+  ];
+
+  for (const queue of resultQueues) {
+    rabbitChannel.consume(queue, async (msg) => {
+      if (msg !== null) {
+        const result = JSON.parse(msg.content.toString());
+        console.log(`📥 Received from ${queue}:`, result);
+        console.log(`📥 Received from ${queue}:`, result["result"]);
+        rabbitChannel.ack(msg);
+        if (
+          result["result"] === null ||
+          result["result"] === undefined ||
+          typeof result["result"] !== "number"
+        ) {
+          console.warn(`⚠️ Invalid result received from ${queue}:`, result);
+          rabbitChannel.ack(msg);
+        } else {
+          await storeResult(result);
+        }
+      }
+    });
+  }
+}
+
+async function storeResult(result) {
+  const { operation, num1, num2, result: operation_result } = result;
+  try {
+    await pool.query(
+      "INSERT INTO operations (operation_type,number_1, number_2, operation_result) VALUES ($1, $2, $3, $4)",
+      [operation, num1, num2, operation_result]
+    );
+    console.log("✅ Result stored in database");
+  } catch (error) {
+    console.error("❌ Database insert failed", error);
   }
 }
