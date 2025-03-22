@@ -1,0 +1,13 @@
+# Use the official Python image
+FROM python:latest
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Install Python dependencies
+RUN export http_proxy="http://pradeep.cabs:Pradeep123_@proxy.drdo.in:3128" && \
+    export https_proxy="http://pradeep.cabs:Pradeep123_@proxy.drdo.in:3128" && \
+    pip install --no-cache-dir pika pandas numpy jupyterlab notebook ipykernel
+
+# Start the app (for debugging purposes)
+CMD ["tail", "-f", "/dev/null"]

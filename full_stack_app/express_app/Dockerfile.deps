@@ -1,0 +1,19 @@
+# Use the official Node.js image
+FROM node:latest
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json first for better caching
+COPY package*.json .  
+
+# Install dependencies and set npm proxy configuration
+# Add logging to track the install process
+RUN npm config set proxy http://pradeep.cabs:Pradeep123_@proxy.drdo.in:3128 && \
+    npm config set https-proxy http://pradeep.cabs:Pradeep123_@proxy.drdo.in:3128 && \
+    echo "Installing dependencies..." && npm install && \
+    echo "Dependencies installed"
+
+# Export the dependencies
+CMD ["tail", "-f", "/dev/null"]
+
