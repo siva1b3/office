@@ -1,20 +1,33 @@
 import express from "express";
 import path from "path";
-import cors from "cors";
+import { fileURLToPath } from "url";
 import amqp from "amqplib";
 import pkg from "pg";
+import cors from "cors";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3001;
+app.use(cors());
+app.use(express.json());
+const PORT = process.env.PORT || 3001;
 
-// Serve static files from the "public" folder
-const __dirname = path.resolve();
-app.use(express.static(path.join(__dirname, "public")));
+const { Pool } = pkg;
 
-// RabbitMq Credentials
-const RABBITMQ_USER = "rabbitmq_user";
-const RABBITMQ_PASS = "rabbitmq_password";
-const RABBITMQ_HOST = "rabbitmq_app";
+// PostgreSQL Connection Pool
+const pool = new Pool({
+  user: "admin_user",
+  host: "postgres_app",
+  database: "mydatabase",
+  password: "admin_password",
+  port: 5432,
+});
+
+// RabbitMQ Credentials
+const RABBITMQ_USER = process.env.RABBITMQ_USER || "rabbitmq_user";
+const RABBITMQ_PASS = process.env.RABBITMQ_PASS || "rabbitmq_password";
+const RABBITMQ_HOST = process.env.RABBITMQ_HOST || "rabbitmq_app";
 const RABBITMQ_URL = `amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672`;
 
 // Request Queue
@@ -29,84 +42,26 @@ const QUEUE_SUB_RESULT = "sub_result_queue";
 const QUEUE_MUL_RESULT = "mul_result_queue";
 const QUEUE_DIV_RESULT = "div_result_queue";
 
-const { Pool } = pkg;
+const queues_list = [
+  QUEUE_ADD,
+  QUEUE_SUB,
+  QUEUE_MUL,
+  QUEUE_DIV,
+  QUEUE_ADD_RESULT,
+  QUEUE_SUB_RESULT,
+  QUEUE_MUL_RESULT,
+  QUEUE_DIV_RESULT,
+];
 
-// PostgreSQL Connection Pool
-const pool = new Pool({
-  user: "admin_user",
-  host: "postgres_app",
-  database: "mydatabase",
-  password: "admin_password",
-  port: 5432,
-});
+const RETRIES = 10;
+const DELAY = 10000;
 
-// Variables
-let connection, channel;
-// ✅ Local variable cache to store results temporarily
-let resultCache;
-const clients = new Set();
+let rabbitConnection;
+let rabbitChannel;
 
-app.use(cors());
-app.use(express.json()); // Middleware to parse JSON requests
-app.use(express.static("public")); // Serve static files
+// Start Express Server
+app.use(express.static(path.join(__dirname, "public")));
 
-async function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// Create Channel and Queues
-async function createChannel() {
-  try {
-    console.log("⏳ Waiting 2 seconds before connecting...");
-
-    await delay(30000); // Wait for 2 seconds
-
-    console.log("⏳ Connecting to RabbitMQ...");
-
-    connection = await amqp.connect(RABBITMQ_URL);
-
-    channel = await connection.createChannel();
-
-    console.log("✅ Connected to RabbitMQ");
-
-    const queues = [
-      QUEUE_ADD,
-      QUEUE_SUB,
-      QUEUE_MUL,
-      QUEUE_DIV,
-      QUEUE_ADD_RESULT,
-      QUEUE_SUB_RESULT,
-      QUEUE_MUL_RESULT,
-      QUEUE_DIV_RESULT,
-    ];
-    for (const queue of queues) {
-      await channel.assertQueue(queue, { durable: true });
-    }
-    console.log("✅ Queues initialized");
-  } catch (error) {
-    console.error("❌ Failed to connect to RabbitMQ", error);
-  }
-}
-
-// Send message to RabbitMQ queue
-async function sendToQueue(message, queue) {
-  if (!channel) return console.error("❌ RabbitMQ channel not initialized");
-  try {
-    channel.sendToQueue(queue, Buffer.from(JSON.stringify(message)), {
-      persistent: true,
-    });
-    console.log(`✅ Sent to queue '${queue}':`, message);
-  } catch (error) {
-    console.error(`❌ Error sending message to queue '${queue}':`, error);
-  }
-}
-
-// Route to serve the HTML file
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-// Backend code for calculates
 app.post("/calculate", async (req, res) => {
   const { num1, num2, operation } = req.body;
 
@@ -122,97 +77,116 @@ app.post("/calculate", async (req, res) => {
   if (!queueMap[operation])
     return res.status(400).json({ error: "Invalid operation" });
 
-  await sendToQueue({ num1, num2, operation }, queueMap[operation]);
-  res.json({ success: true, message: `Processing request: ${operation}` });
-});
-
-//Store the result into database
-async function storeResult(num1, num2, operation, result) {
-  try {
-    await pool.query(
-      "INSERT INTO results (num1, num2, operation, result) VALUES ($1, $2, $3, $4)",
-      [num1, num2, operation, result]
-    );
-    console.log("✅ Result stored in database");
-  } catch (error) {
-    console.error("❌ Database insert failed", error);
+  const status = await sendToQueue(
+    { num1, num2, operation },
+    queueMap[operation]
+  );
+  if (!status) {
+    return res.status(500).json({ error: "Failed to send message to queue" });
   }
-}
-
-// fetch the result from database
-/*app.get("/results", async (req, res) => {
-  try {
-    const { rows } = await pool.query(
-      "SELECT * FROM results ORDER BY result_id DESC LIMIT 10"
-    );
-    res.json(rows);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch results" });
-  }
-});*/
-
-app.get("/results", async (req, res) => {
-  try {
-    res.json(resultCache[0]);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch results" });
-  }
-});
-// ✅ Consume results from RabbitMQ and store in cache
-async function consumeResults() {
-  const resultQueues = [
-    QUEUE_ADD_RESULT,
-    QUEUE_SUB_RESULT,
-    QUEUE_MUL_RESULT,
-    QUEUE_DIV_RESULT,
-  ];
-
-  for (const queue of resultQueues) {
-    channel.consume(queue, async (msg) => {
-      if (msg !== null) {
-        const result = JSON.parse(msg.content.toString());
-        console.log(`📥 Received from ${queue}:`, result);
-	console.log(`📥 Received from ${queue}:`, result["result"]);
-        // // Store result in the local cache
-        // resultCache.push({
-        //   num1: result.num1,
-        //   num2: result.num2,
-        //   operation: queue.replace("_result_queue", ""),
-        //   result: result.result,
-        //   timestamp: new Date().toISOString(),
-        // });
-
-        // // Limit cache to the last 20 results
-        // if (resultCache.length > 20) {
-        //   resultCache.shift(); // Remove the oldest result
-        // }
-
-        // Store result in DB for persistence
-        // await storeResult(
-        //   result.num1,
-        //   result.num2,
-        //   queue.replace("_result_queue", ""),
-        //   result.result
-        // );
-
-        // Acknowledge message
-        channel.ack(msg);
-      }
-    });
-  }
-}
-
-// ✅ Start the server only after RabbitMQ connection is established
-createChannel()
-  .then(() => {
-    consumeResults();
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error(
-      "❌ Could not start the server because RabbitMQ connection failed:",
-      err
-    );
+  return res.json({
+    success: true,
+    message: `Processing request: ${operation}`,
   });
+});
+
+app.get("/", (req, res) => {
+  console.log("🔄 Serving index.html");
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.listen(PORT, async () => {
+  try {
+    await connectRabbitMQ();
+  } catch (error) {
+    console.error("❌ RabbitMQ connection failed:", error);
+  }
+  console.log(`✅ Server is running on http://localhost:${PORT}`);
+});
+
+async function connectRabbitMQ(retries = RETRIES, delay = DELAY) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      console.log(
+        `⏳ Attempting to connect to RabbitMQ (${i + 1}/${retries})...`
+      );
+      rabbitConnection = await amqp.connect(RABBITMQ_URL);
+      rabbitChannel = await rabbitConnection.createChannel();
+      console.log("✅ Connected to RabbitMQ and channel is ready");
+
+      // Create a persistent queue after connection is established
+      await create_predined_queus(queues_list); // Replace "tasks" with your desired queue name
+      return;
+    } catch (error) {
+      console.error(
+        `❌ RabbitMQ connection attempt ${i + 1} failed:`,
+        error.message
+      );
+      if (i < retries - 1) {
+        console.log(`🔄 Retrying in ${delay / 1000} seconds...`);
+        await new Promise((res) => setTimeout(res, delay));
+      }
+    }
+  }
+  throw new Error("❌ Failed to connect to RabbitMQ after multiple attempts");
+}
+
+async function create_predined_queus(queues_list) {
+  // Null guard clause: Check if queues_list is valid and has at least one queue
+  if (!Array.isArray(queues_list) || queues_list.length === 0) {
+    console.warn(
+      "❌ queues_list is empty or not an array. No queues were created."
+    );
+    return null; // Return early if the input is invalid
+  }
+
+  // Validate that all elements are strings and have length > 1
+  for (const queue of queues_list) {
+    if (typeof queue !== "string" || queue.length <= 0) {
+      console.error(
+        `❌ Invalid queue name: "${queue}". Queue names must be strings with length > 1.`
+      );
+      return null; // Stop execution if any queue name is invalid
+    }
+  }
+
+  if (!rabbitChannel) {
+    throw new Error("❌ RabbitMQ channel is not available");
+  }
+
+  for (const queue of queues_list) {
+    try {
+      // Assert the queue exists or create it if it doesn't
+      await rabbitChannel.assertQueue(queue, { durable: true });
+      // durable: true makes the queue persistent
+      console.log(`✅ Queue "${queue}" is ready (durable)`);
+    } catch (error) {
+      console.error(`❌ Failed to create queue ${queue}:`, error.message);
+      throw error;
+    }
+  }
+}
+
+async function sendMessage(message, queueName) {
+  if (!rabbitChannel) {
+    throw new Error("❌ RabbitMQ channel is not available");
+  }
+
+  try {
+    // Convert the message object to a JSON string
+    const messageString = JSON.stringify(message);
+
+    // Send message to the queue with persistent flag
+    rabbitChannel.sendToQueue(queueName, Buffer.from(messageString), {
+      persistent: true,
+    });
+    console.log(`✅ Message sent to queue "${queueName}":`, message);
+    return true;
+  } catch (error) {
+    console.error(
+      `❌ Failed to send message to queue "${queueName}":`,
+      error.message
+    );
+    return false;
+  }
+}
