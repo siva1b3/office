@@ -50,6 +50,7 @@ def callback(ch, method, properties, body):
         num2 = data.get("num2")
 
         if num1 is not None and num2 is not None:
+            time.sleep(30) # Simulate long processing time
             result = num1 + num2
             print(f"✅ Addition result: {num1} + {num2} = {result}")
 

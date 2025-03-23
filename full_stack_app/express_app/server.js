@@ -53,6 +53,20 @@ const queues_list = [
   QUEUE_DIV_RESULT,
 ];
 
+const request_queue_list = {
+  add: QUEUE_ADD,
+  subtract: QUEUE_SUB,
+  multiply: QUEUE_MUL,
+  divide: QUEUE_DIV,
+};
+
+const response_queue_list = [
+  QUEUE_ADD_RESULT,
+  QUEUE_SUB_RESULT,
+  QUEUE_MUL_RESULT,
+  QUEUE_DIV_RESULT,
+];
+
 const RETRIES = 10;
 const DELAY = 10000;
 
@@ -68,27 +82,54 @@ app.post("/calculate", async (req, res) => {
   if (num1 === undefined || num2 === undefined || !operation) {
     return res.status(400).json({ error: "Missing parameters" });
   }
-  const queueMap = {
-    add: QUEUE_ADD,
-    subtract: QUEUE_SUB,
-    multiply: QUEUE_MUL,
-    divide: QUEUE_DIV,
-  };
-  if (!queueMap[operation])
+
+  if (!request_queue_list[operation])
     return res.status(400).json({ error: "Invalid operation" });
 
-  const status = await sendMessage(
+  const request_status = await sendMessage(
     { num1, num2, operation },
-    queueMap[operation]
+    request_queue_list[operation]
   );
-  if (!status) {
+
+  if (!request_status) {
     return res.status(500).json({ error: "Failed to send message to queue" });
   }
+
   return res.json({
     success: true,
     message: `Processing request: ${operation}`,
   });
 });
+
+let clients = []; // Store SSE connections
+let tasks = {}; // Store calculation results
+
+// SSE Endpoint for Real-time Updates
+app.get("/events", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  // Store the connection
+  clients.push(res);
+
+  // Send old tasks if any
+  Object.values(tasks).forEach((task) => {
+    res.write(`data: ${JSON.stringify(task)}\n\n`);
+  });
+
+  // Remove client on disconnect
+  req.on("close", () => {
+    clients = clients.filter((client) => client !== res);
+  });
+});
+
+// Function to send updates
+const sendUpdate = (data) => {
+  clients.forEach((client) => {
+    client.write(`data: ${JSON.stringify(data)}\n\n`);
+  });
+};
 
 app.get("/", (req, res) => {
   console.log("🔄 Serving index.html");
@@ -98,7 +139,7 @@ app.get("/", (req, res) => {
 app.listen(PORT, async () => {
   try {
     await connectRabbitMQ();
-    consumeResults();
+    consumeResults(response_queue_list);
   } catch (error) {
     console.error("❌ RabbitMQ connection failed:", error);
   }
@@ -192,34 +233,27 @@ async function sendMessage(message, queueName) {
   }
 }
 
-async function consumeResults() {
-  const resultQueues = [
-    QUEUE_ADD_RESULT,
-    QUEUE_SUB_RESULT,
-    QUEUE_MUL_RESULT,
-    QUEUE_DIV_RESULT,
-  ];
+async function consumeResults(response_queue_list) {
+  await Promise.all(
+    response_queue_list.map(async (queue) => {
+      rabbitChannel.consume(queue, async (msg) => {
+        if (!msg) return;
 
-  for (const queue of resultQueues) {
-    rabbitChannel.consume(queue, async (msg) => {
-      if (msg !== null) {
         const result = JSON.parse(msg.content.toString());
         console.log(`📥 Received from ${queue}:`, result);
-        console.log(`📥 Received from ${queue}:`, result["result"]);
-        rabbitChannel.ack(msg);
-        if (
-          result["result"] === null ||
-          result["result"] === undefined ||
-          typeof result["result"] !== "number"
-        ) {
+
+        if (typeof result?.result !== "number") {
           console.warn(`⚠️ Invalid result received from ${queue}:`, result);
-          rabbitChannel.ack(msg);
         } else {
+          await new Promise((resolve) => setTimeout(resolve, 30000));
           await storeResult(result);
+          sendUpdate(result);
         }
-      }
-    });
-  }
+
+        rabbitChannel.ack(msg);
+      });
+    })
+  );
 }
 
 async function storeResult(result) {
