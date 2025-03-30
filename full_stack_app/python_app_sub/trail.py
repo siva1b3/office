@@ -3,7 +3,7 @@ import time
 import json
 
 # Use RabbitMQ service name or container IP in Docker Compose
-RABBITMQ_HOST = 'rabbitmq_app'   # Docker service name
+RABBITMQ_HOST = 'rabbitmq-service'   # Docker service name
 RABBITMQ_PORT = 5672
 RABBITMQ_USER = 'rabbitmq_user'
 RABBITMQ_PASS = 'rabbitmq_password'
@@ -33,8 +33,8 @@ for attempt in range(1, MAX_RETRIES + 1):
 channel = connection.channel()
 
 # Define queues
-CONSUME_QUEUES = ["add_operations", "sub_operations", "mul_operations", "div_operations"]
-PRODUCE_QUEUES = ["add_result_queue", "sub_result_queue", "mul_result_queue", "div_result_queue"]
+CONSUME_QUEUES = ["sub_operations"]
+PRODUCE_QUEUES = ["sub_result_queue"]
 
 ALL_QUEUES = CONSUME_QUEUES + PRODUCE_QUEUES
 
@@ -48,6 +48,7 @@ for queue in ALL_QUEUES:
         channel.queue_declare(queue=queue, durable=True)
 
 def process_message(queue_name, data):
+    time.sleep(60)
     if isinstance(data, dict) and "num1" in data and "num2" in data:
         operation_map = {
             "add_operations": (lambda x, y: x + y, "add_result_queue", "add"),

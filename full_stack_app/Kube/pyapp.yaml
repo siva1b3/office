@@ -1,0 +1,43 @@
+# ------------------------
+# Service Definition
+# ------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: pyapp-service
+spec:
+  type: NodePort
+  selector:
+    app: pyapp
+  ports:
+    - protocol: TCP
+      port: 8888
+      targetPort: 8888
+      nodePort: 30088
+
+---
+# ------------------------
+# Pod Definition
+# ------------------------
+apiVersion: v1 # ✅ Use v1 for Pods
+kind: Pod
+metadata:
+  name: pyapp
+  labels:
+    app: pyapp
+spec:
+  containers:
+    - name: pyapp
+      image: app_final-python_app_01:latest
+      imagePullPolicy: Never
+      ports:
+        - containerPort: 8888
+
+      # ✅ Resource Limits
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "500m"
+        limits:
+          memory: "1Gi"
+          cpu: "1"

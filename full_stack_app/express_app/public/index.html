@@ -22,13 +22,26 @@
 
     <h3>Result: <span id="result">Waiting...</span></h3>
 
+    <hr />
+    <hr />
+    <hr />
+
     <script>
+      let clientId = "";
+
       const eventSource = new EventSource("http://localhost:3001/events");
 
-      eventSource.onmessage = function (event) {
-        const data = JSON.parse(event.data);
-        document.getElementById("result").textContent = `Task  ${data.result}`;
-        console.log("Received update:", data);
+      eventSource.addEventListener("clientId", (event) => {
+        clientId = event.data;
+        console.log("Client ID:", clientId);
+        document.getElementById(
+          "output"
+        ).innerHTML = `Connected with ID: ${clientId}`;
+      });
+
+      eventSource.onmessage = (event) => {
+        console.log("Message:", event.data);
+        document.getElementById("output").innerHTML += `<p>${event.data}</p>`;
       };
 
       async function calculate(operation) {
@@ -40,14 +53,18 @@
           return;
         }
 
-        const data = { num1, num2, operation };
+        // ✅ Include the clientId in the request payload
+        const data = { clientId, num1, num2, operation };
 
         try {
-          const response = await fetch("http://localhost:3001/calculate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-          });
+          const response = await fetch(
+            "http://localhost:3001/calculate?clientId=${clientId}`",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            }
+          );
 
           const result = await response.json();
           document.getElementById(

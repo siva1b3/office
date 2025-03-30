@@ -12,7 +12,7 @@ volumes:
     name: rabbitmq_data_full_app_office
 
 services:
-  postgres_app:
+  postgres-service:
     image: postgres:latest
     container_name: postgres_container
     restart: no
@@ -27,7 +27,7 @@ services:
     ports:
       - "5432:5432"
 
-  pgadmin_app:
+  pgadmin-service:
     image: dpage/pgadmin4
     container_name: pgadmin_container
     restart: no
@@ -41,24 +41,9 @@ services:
     ports:
       - "5050:80"
     depends_on:
-      - postgres_app
+      - postgres-service
 
-  python_app:
-    container_name: python_container
-    restart: no
-    build:
-      context: ./python_app
-      dockerfile: Dockerfile
-    volumes:
-      - ./python_app:/usr/src/app
-    stdin_open: true
-    tty: true
-    networks:
-      - custom_network
-    depends_on:
-      - rabbitmq_app
-
-  rabbitmq_app:
+  rabbitmq-service:
     image: rabbitmq:4.0.7-management
     container_name: rabbitmq_container
     restart: no
@@ -73,14 +58,12 @@ services:
     networks:
       - custom_network
     depends_on:
-      - postgres_app
+      - postgres-service
 
-  express_app:
+  express-service:
+    image: app_final-express_app:latest
     container_name: express_app_container
     restart: no
-    build:
-      context: ./express_app
-      dockerfile: Dockerfile
     ports:
       - "3001:3001"
     volumes:
@@ -89,4 +72,56 @@ services:
     networks:
       - custom_network
     depends_on:
-      - postgres_app
+      - postgres-service
+
+  python-service-add:
+    image: python_app_add:latest
+    container_name: python_container_add
+    restart: no
+    volumes:
+      - ./python_app_add:/usr/src/app
+    stdin_open: true
+    tty: true
+    networks:
+      - custom_network
+    depends_on:
+      - rabbitmq-service
+
+  python-service-div:
+    image: python_app_div:latest
+    container_name: python_container_div
+    restart: no
+    volumes:
+      - ./python_app_div:/usr/src/app
+    stdin_open: true
+    tty: true
+    networks:
+      - custom_network
+    depends_on:
+      - rabbitmq-service
+
+  python-service-mul:
+    image: python_app_mul:latest
+    container_name: python_container_mul
+    restart: no
+    volumes:
+      - ./python_app_mul:/usr/src/app
+    stdin_open: true
+    tty: true
+    networks:
+      - custom_network
+    depends_on:
+      - rabbitmq-service
+
+  python-service-sub:
+    image: python_app_sub:latest
+    container_name: python_container_sub
+    restart: no
+    volumes:
+      - ./python_app_sub:/usr/src/app
+    stdin_open: true
+    tty: true
+    networks:
+      - custom_network
+    depends_on:
+      - rabbitmq-service

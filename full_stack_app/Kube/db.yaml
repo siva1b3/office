@@ -1,0 +1,118 @@
+# ----------------------------
+# PostgreSQL Secret
+# ----------------------------
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  labels:
+    app: postgres
+type: Opaque
+stringData:
+  POSTGRES_USER: admin_user
+  POSTGRES_PASSWORD: admin_password
+  POSTGRES_DB: mydatabase
+
+---
+# ----------------------------
+# PostgreSQL ConfigMap (Optional: for custom PostgreSQL config)
+# ----------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  labels:
+    app: postgres
+data:
+  POSTGRES_INITDB_ARGS: "--data-checksums"
+  PGDATA: "/var/lib/postgresql/data/pgdata" # Custom data directory
+
+---
+# ----------------------------
+# PostgreSQL Service (Headless for StatefulSet)
+# ----------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-servcie
+  labels:
+    app: postgres
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None # Headless service for StatefulSet
+  selector:
+    app: postgres
+
+---
+# ----------------------------
+# Persistent Volume Claim (PVC)
+# ----------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  labels:
+    app: postgres
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi # Adjust size based on your needs
+
+---
+# ----------------------------
+# PostgreSQL StatefulSet
+# ----------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  serviceName: "postgres"
+  replicas: 1 # Production with 1 replicas for HA
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: postgres
+          image: postgres:latest # Use a specific version for stability
+          imagePullPolicy: Never # 🚀 Use local image, no pull from registry
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+            - name: PGDATA
+              value: "/var/lib/postgresql/data/pgdata" # Consistent data directory
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata # Consistent subpath for data
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc

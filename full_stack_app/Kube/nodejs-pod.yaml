@@ -1,0 +1,41 @@
+# ------------------------
+# Pod Definition (For Test & Development)
+# ------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nodejs-app # Pod name
+  labels:
+    app: nodejs
+spec:
+  containers:
+    - name: express-app-container
+      image: app_final-express_app:latest # Local image
+      imagePullPolicy: Never # 🚀 Use local image, no pull from registry
+      ports:
+        - containerPort: 3001
+      # ✅ Resource Limits
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "500m"
+        limits:
+          memory: "1Gi"
+          cpu: "1"
+---
+# ------------------------
+# Service Definition
+# ------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodejs-service
+spec:
+  selector:
+    app: nodejs
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 3001 # Service port
+      targetPort: 3001 # Internal Pod port
+      nodePort: 30081 # External port (30000-32767)

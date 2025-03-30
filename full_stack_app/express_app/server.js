@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import amqp from "amqplib";
 import pkg from "pg";
 import cors from "cors";
+import { v4 as uuidv4 } from "uuid"; // ✅ Import UUID for unique client ID
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,16 +19,16 @@ const { Pool } = pkg;
 // PostgreSQL Connection Pool
 const pool = new Pool({
   user: "admin_user",
-  host: "postgres_app",
+  host: "postgres-service",
   database: "mydatabase",
   password: "admin_password",
   port: 5432,
 });
 
 // RabbitMQ Credentials
-const RABBITMQ_USER = process.env.RABBITMQ_USER || "rabbitmq_user";
-const RABBITMQ_PASS = process.env.RABBITMQ_PASS || "rabbitmq_password";
-const RABBITMQ_HOST = process.env.RABBITMQ_HOST || "rabbitmq_app";
+const RABBITMQ_USER = "rabbitmq_user";
+const RABBITMQ_PASS = "rabbitmq_password";
+const RABBITMQ_HOST = "rabbitmq-service";
 const RABBITMQ_URL = `amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672`;
 
 // Request Queue
@@ -101,8 +102,8 @@ app.post("/calculate", async (req, res) => {
   });
 });
 
-let clients = []; // Store SSE connections
-let tasks = {}; // Store calculation results
+const clients = {}; // Store client connections by clientId
+const taskResults = {}; // Store pending results
 
 // SSE Endpoint for Real-time Updates
 app.get("/events", (req, res) => {
@@ -110,25 +111,35 @@ app.get("/events", (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  // Store the connection
-  clients.push(res);
+  const clientId = uuidv4(); // Unique ID for each client
+  clients[clientId] = res; // Store the connection
+  console.log(`Client connected: ${clientId}`);
 
-  // Send old tasks if any
-  Object.values(tasks).forEach((task) => {
-    res.write(`data: ${JSON.stringify(task)}\n\n`);
-  });
+  // Send client ID to the client
+  res.write(`event: clientId\ndata: ${clientId}\n\n`);
+
+  // Check for pending results and send them if they exist
+  if (taskResults[clientId]) {
+    res.write(`data: ${taskResults[clientId]}\n\n`);
+    delete taskResults[clientId]; // Clean up after sending
+  }
 
   // Remove client on disconnect
   req.on("close", () => {
-    clients = clients.filter((client) => client !== res);
+    console.log(`Client disconnected: ${clientId}`);
+    delete clients[clientId];
   });
 });
 
-// Function to send updates
-const sendUpdate = (data) => {
-  clients.forEach((client) => {
-    client.write(`data: ${JSON.stringify(data)}\n\n`);
-  });
+// ✅ Send updates to a specific client by clientId
+const sendUpdate = (clientId, data) => {
+  if (clients[clientId]) {
+    clients[clientId].write(`data: ${JSON.stringify(data)}\n\n`);
+    console.log(`Sent update to client ${clientId}`);
+  } else {
+    console.log(`Client ${clientId} not connected. Storing result.`);
+    taskResults[clientId] = JSON.stringify(data); // Store for later if disconnected
+  }
 };
 
 app.get("/", (req, res) => {
@@ -136,7 +147,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.listen(PORT, async () => {
+app.listen(PORT, "0.0.0.0", async () => {
   try {
     await connectRabbitMQ();
     consumeResults(response_queue_list);
@@ -245,7 +256,7 @@ async function consumeResults(response_queue_list) {
         if (typeof result?.result !== "number") {
           console.warn(`⚠️ Invalid result received from ${queue}:`, result);
         } else {
-          await new Promise((resolve) => setTimeout(resolve, 30000));
+          // await new Promise((resolve) => setTimeout(resolve, 30000));
           await storeResult(result);
           sendUpdate(result);
         }
