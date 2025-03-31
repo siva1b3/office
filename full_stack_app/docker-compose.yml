@@ -79,128 +79,144 @@ services:
 
   python-service-add-01:
     build:
-      context: ./python_app_add_01 # This is the build context (the directory where Dockerfile and app code are located)
+      context: ./python_app_add # This is the build context (the directory where Dockerfile and app code are located)
       dockerfile: Dockerfile # Specify the Dockerfile (optional if it's named Dockerfile)
     container_name: python_container_add_01
     restart: no
     volumes:
-      - ./python_app_add_01:/usr/src/app
+      - ./python_app_add:/usr/src/app
     stdin_open: true
     tty: true
     networks:
       - custom_network
+    environment:
+      - TIME_SLEEP=10
     depends_on:
       - rabbitmq-service
       - postgres-service
 
   python-service-add-02:
     build:
-      context: ./python_app_add_02 # This is the build context (the directory where Dockerfile and app code are located)
+      context: ./python_app_add # This is the build context (the directory where Dockerfile and app code are located)
       dockerfile: Dockerfile # Specify the Dockerfile (optional if it's named Dockerfile)
     container_name: python_container_add_02
     restart: no
     volumes:
-      - ./python_app_add_02:/usr/src/app
+      - ./python_app_add:/usr/src/app
     stdin_open: true
     tty: true
     networks:
       - custom_network
+    environment:
+      - TIME_SLEEP=60
     depends_on:
       - rabbitmq-service
       - postgres-service
 
   python-service-div-01:
     build:
-      context: ./python_app_div_01 # This is the build context (the directory where Dockerfile and app code are located)
+      context: ./python_app_div # This is the build context (the directory where Dockerfile and app code are located)
       dockerfile: Dockerfile # Specify the Dockerfile (optional if it's named Dockerfile)
     container_name: python_container_div_01
     restart: no
     volumes:
-      - ./python_app_div_01:/usr/src/app
+      - ./python_app_div:/usr/src/app
     stdin_open: true
     tty: true
     networks:
       - custom_network
+    environment:
+      - TIME_SLEEP=10
     depends_on:
       - rabbitmq-service
       - postgres-service
 
   python-service-div-02:
     build:
-      context: ./python_app_div_02 # This is the build context (the directory where Dockerfile and app code are located)
+      context: ./python_app_div # This is the build context (the directory where Dockerfile and app code are located)
       dockerfile: Dockerfile # Specify the Dockerfile (optional if it's named Dockerfile)
     container_name: python_container_div_02
     restart: no
     volumes:
-      - ./python_app_div_02:/usr/src/app
+      - ./python_app_div:/usr/src/app
     stdin_open: true
     tty: true
     networks:
       - custom_network
+    environment:
+      - TIME_SLEEP=60
     depends_on:
       - rabbitmq-service
       - postgres-service
 
   python-service-mul-01:
     build:
-      context: ./python_app_mul_01 # This is the build context (the directory where Dockerfile and app code are located)
+      context: ./python_app_mul # This is the build context (the directory where Dockerfile and app code are located)
       dockerfile: Dockerfile # Specify the Dockerfile (optional if it's named Dockerfile)
     container_name: python_container_mul_01
     restart: no
     volumes:
-      - ./python_app_mul_01:/usr/src/app
+      - ./python_app_mul:/usr/src/app
     stdin_open: true
     tty: true
     networks:
       - custom_network
+    environment:
+      - TIME_SLEEP=10
     depends_on:
       - rabbitmq-service
       - postgres-service
 
   python-service-mul-02:
     build:
-      context: ./python_app_mul_02 # This is the build context (the directory where Dockerfile and app code are located)
+      context: ./python_app_mul # This is the build context (the directory where Dockerfile and app code are located)
       dockerfile: Dockerfile # Specify the Dockerfile (optional if it's named Dockerfile)
     container_name: python_container_mul_02
     restart: no
     volumes:
-      - ./python_app_mul_02:/usr/src/app
+      - ./python_app_mul:/usr/src/app
     stdin_open: true
     tty: true
     networks:
       - custom_network
+    environment:
+      - TIME_SLEEP=60
     depends_on:
       - rabbitmq-service
       - postgres-service
 
   python-service-sub-01:
     build:
-      context: ./python_app_sub_01 # This is the build context (the directory where Dockerfile and app code are located)
+      context: ./python_app_sub # This is the build context (the directory where Dockerfile and app code are located)
       dockerfile: Dockerfile # Specify the Dockerfile (optional if it's named Dockerfile)
     container_name: python_container_sub_01
     restart: no
     volumes:
-      - ./python_app_sub_01:/usr/src/app
+      - ./python_app_sub:/usr/src/app
     stdin_open: true
     tty: true
     networks:
       - custom_network
+    environment:
+      - TIME_SLEEP=10
     depends_on:
       - rabbitmq-service
       - postgres-service
 
   python-service-sub-02:
     build:
-      context: ./python_app_sub_02 # This is the build context (the directory where Dockerfile and app code are located)
+      context: ./python_app_sub # This is the build context (the directory where Dockerfile and app code are located)
       dockerfile: Dockerfile # Specify the Dockerfile (optional if it's named Dockerfile)
     container_name: python_container_sub_02
     restart: no
     volumes:
-      - ./python_app_sub_02:/usr/src/app
+      - ./python_app_sub:/usr/src/app
     stdin_open: true
     tty: true
     networks:
       - custom_network
+    environment:
+      - TIME_SLEEP=60
     depends_on:
       - rabbitmq-service
       - postgres-service

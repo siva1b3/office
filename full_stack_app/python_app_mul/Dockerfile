@@ -1,5 +1,5 @@
 # Use the official Python image
-FROM python-mul-01-dep:latest
+FROM python-mul-dependencies-image:latest
 
 # Set the working directory in the container
 WORKDIR /app

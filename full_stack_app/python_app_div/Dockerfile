@@ -1,5 +1,5 @@
 # Use the official Python image
-FROM python-add-02-dep:latest
+FROM python-div-dependencies-image:latest
 
 # Set the working directory in the container
 WORKDIR /app

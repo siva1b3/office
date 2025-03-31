@@ -1,6 +1,13 @@
 import pika
 import time
 import json
+import os
+
+time_sleep_str = os.getenv("TIME_SLEEP", "0")  # Get the environment variable as a string (default is "0")
+try:
+    time_sleep = float(time_sleep_str)  # Try to convert the string to a float
+except ValueError:
+    time_sleep = 0  # If the conversion fails, default to 0
 
 # Use RabbitMQ service name or container IP in Docker Compose
 RABBITMQ_HOST = 'rabbitmq-service'   # Docker service name
@@ -35,8 +42,8 @@ channel = connection.channel()
 channel.basic_qos(prefetch_count=1)
 
 # Define queues
-CONSUME_QUEUES = ["add_operations"]
-PRODUCE_QUEUES = ["add_result_queue"]
+CONSUME_QUEUES = ["sub_operations"]
+PRODUCE_QUEUES = ["sub_result_queue"]
 
 ALL_QUEUES = CONSUME_QUEUES + PRODUCE_QUEUES
 
@@ -50,7 +57,7 @@ for queue in ALL_QUEUES:
         channel.queue_declare(queue=queue, durable=True)
 
 def process_message(queue_name, data):
-    time.sleep(10)
+    time.sleep(time_sleep)
     if isinstance(data, dict) and "num1" in data and "num2" in data:
         operation_map = {
             "add_operations": (lambda x, y: x + y, "add_result_queue", "add"),

@@ -6,15 +6,15 @@ echo "🚀 Starting Docker Build Process..."
 echo "=================================="
 
 # Run the Docker build command with the appropriate context and Dockerfile
-# -t specifies the image name and tag (python-mul-01-dep:latest)
+# -t specifies the image name and tag (python-div-dependencies-image:latest)
 # -f specifies the Dockerfile to be used for the build (Dockerfile.deps)
 # The build context is set to the current directory (.)
-docker build -t python-mul-01-dep:latest -f Dockerfile.deps .  # <-- Add the build context (.)
+docker build -t python-div-dependencies-image:latest -f Dockerfile.deps .  # <-- Add the build context (.)
 
 # Check if the build was successful by checking the exit status of the last command ($?)
 if [ $? -eq 0 ]; then
     # If the build was successful, print a success message
-    echo "✅ Docker image 'python-mul-01-dep:latest' built successfully!"
+    echo "✅ Docker image 'python-div-dependencies-image:latest' built successfully!"
 else
     # If the build failed, print a failure message
     echo "❌ Docker build failed. Check the logs for details."
