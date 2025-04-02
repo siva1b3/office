@@ -8,6 +8,7 @@ try:
     time_sleep = float(time_sleep_str)  # Try to convert the string to a float
 except ValueError:
     time_sleep = 0  # If the conversion fails, default to 0
+print(f"Time sleep set to: {time_sleep} seconds")
 
 # Use RabbitMQ service name or container IP in Docker Compose
 RABBITMQ_HOST = 'rabbitmq-service'   # Docker service name
